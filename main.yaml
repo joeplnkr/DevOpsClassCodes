@@ -1,20 +1,12 @@
 ---
-- hosts: tomcatservertest
-  remote_user: labsuser
+- hosts: tomcatserver
+  remote_user: ubuntu
   become: true
   tasks:
   - name: Update System Packages
     apt:
       upgrade: yes
       update_cache: no
-  - name: Install openjdk 1.8
-    apt:
-      name: openjdk-8-jdk
-      update_cache: no
-      state: present
-  - name: Validate Java installation
-    shell:
-      java -version
   - name: Create tomcat group
     group:
       name: tomcat
@@ -26,11 +18,12 @@
       home: /usr/share/tomcat8
       createhome: no
       state: present
-  - name: Download and extract tomcat8 server application files
-    unarchive:
-      src: http://archive.apache.org/dist/tomcat/tomcat-8/v8.0.51/bin/apache-tomcat-8.0.51.tar.gz
-      dest: /opt
-      remote_src: yes
+  - name: Download tomcat8 server application files
+    get_url:
+      url: http://archive.apache.org/dist/tomcat/tomcat-8/v8.0.51/bin/apache-tomcat-8.0.51.tar.gz
+      dest: /opt/apache-tomcat-8.0.51.tar.gz
+  - name: Extract tomcat8 server application files
+    command: tar zxvf /opt/apache-tomcat-8.0.51.tar.gz -C /opt/ creates=/opt/apache-tomcat-8.0.51
   - name: Change ownership of tomcat installation directory
     file:
       path: /opt/apache-tomcat-8.0.51
@@ -47,10 +40,10 @@
       owner: tomcat
       group: tomcat
       mode: 0755
-  # - name: Copy application war file
-  #   copy:
-  #     src: ./target/addressbook.war
-  #     dest: /opt/apache-tomcat-8.0.51/webapps/ROOT.war
+  - name: Copy application war file
+    copy:
+      src: ./target/addressbook.war
+      dest: /opt/apache-tomcat-8.0.51/webapps/ROOT.war
   - name: Creating a service file
     copy: 
       content: |-
