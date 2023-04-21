@@ -44,6 +44,9 @@
     copy:
       src: ./target/addressbook.war
       dest: /opt/apache-tomcat-8.0.51/webapps/ROOT.war
+      owner: tomcat
+      group: tomcat
+      mode: 0755
   - name: Creating a service file
     copy: 
       content: |-
