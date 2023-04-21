@@ -1,16 +1,16 @@
-- name: Install OpenJdk8, Tomcat8 Server, and  application WAR file onto server
-- hosts: tomcatserver
-  remote_user: ubuntu
+---
+- hosts: tomcatservertest
+  remote_user: labsuser
   become: true
   tasks:
   - name: Update System Packages
     apt:
       upgrade: yes
-      update_cache: yes
+      update_cache: no
   - name: Install openjdk 1.8
     apt:
       name: openjdk-8-jdk
-      update_cache: yes
+      update_cache: no
       state: present
   - name: Validate Java installation
     shell:
@@ -26,17 +26,10 @@
       home: /usr/share/tomcat8
       createhome: no
       state: present
-  - name: Create Tomcat directory
-    file:
-      path: /opt/apache-tomcat-8.0.51
-      owner: tomcat
-      group: tomcat
-      mode: 755
-      recurse: yes
   - name: Download and extract tomcat8 server application files
     unarchive:
       src: http://archive.apache.org/dist/tomcat/tomcat-8/v8.0.51/bin/apache-tomcat-8.0.51.tar.gz
-      dest: /opt/apache-tomcat-8.0.51
+      dest: /opt
       remote_src: yes
   - name: Change ownership of tomcat installation directory
     file:
@@ -54,22 +47,44 @@
       owner: tomcat
       group: tomcat
       mode: 0755
-  - name: Copy WAR file
-    copy:
-      src: ./target/addressbook.war
-      dest: /opt/apache-tomcat-8.0.51/webapps/ROOT.war
-      owner: tomcat
-      group: tomcat
-  - name: Copy Tomcat service from local to remote_src
-    copy:
-      src: /etc/tomcat.service
-      dest: /etc/systemd/system/
-      mode: 0755
+  # - name: Copy application war file
+  #   copy:
+  #     src: ./target/addressbook.war
+  #     dest: /opt/apache-tomcat-8.0.51/webapps/ROOT.war
+  - name: Creating a service file
+    copy: 
+      content: |-
+        [Unit]
+        Description=Tomcat Service
+        Requires=network.target
+        After=network.target
+        [Service]
+        Type=forking
+        User=tomcat
+        Environment="CATALINA_PID=/opt/apache-tomcat-8.0.51/logs/tomcat.pid"
+        Environment="CATALINA_BASE=/opt/apache-tomcat-8.0.51"
+        Environment="CATALINA_HOME=/opt/apache-tomcat-8.0.51"
+        Environment="CATALINA_OPTS=-Xms512M -Xmx1024M -server -XX:+UseParallelGC"
+        ExecStart=/opt/apache-tomcat-8.0.51/bin/startup.sh
+        ExecStop=/opt/apache-tomcat-8.0.51/bin/shutdown.sh
+        Restart=on-abnormal
+        [Install]
+        WantedBy=multi-user.target
+      dest: /etc/systemd/system/tomcat.service
   - name: Reload the SystemD to re-read configurations
     systemd:
-      daemon_reload: true
+      daemon-reload: yes
   - name: Enable the tomcat service and start
     systemd:
       name: tomcat
       enabled: yes
       state: started
+  - name: Connect to Tomcat server on port 8080 and check status 200 - Try 5 times
+    tags: test
+    uri:
+      url: http://localhost:8080
+    register: result
+    until: "result.status == 200"
+    retries: 5
+    delay: 10
+...
